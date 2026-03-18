@@ -139,26 +139,28 @@ public class GLBSceneContainerView: UIView {
     return snapshotOnce()
   }
 
-  /// 多机位截图：9 张 = 水平环绕 6 张 + 俯视 / 仰视 / 远景斜侧 各 1 张
-  private static func multiCameraPositions() -> [SCNVector3] {
+  /// 多机位截图：在“正前方下侧弧线”上均匀布置 N 个视点，并全部对准中心点。
+  /// - 约定：主相机在 (0, ~0.25, +Z) 朝向原点，因此这里用 +Z 半球的一段弧线（左右展开）。
+  private static func multiCameraPositions(count: Int) -> [SCNVector3] {
+    let n = max(2, count)
     let center = SCNVector3(0, 0, 0)
-    let r: Float = 2.2
-    let h: Float = 0.3
-    var positions: [SCNVector3] = []
-    // 水平环绕 6 张（0°, 60°, 120°, 180°, 240°, 300°）
-    for i in 0..<6 {
-      let angle = Float(i) * (2.0 * Float.pi / 6.0)
-      let x = center.x + r * cosf(angle)
-      let z = center.z + r * sinf(angle)
-      positions.append(SCNVector3(x, h, z))
+    // 视角“太近”主要由相机距离 + FOV 决定：这里先把相机整体拉远一些
+    let radius: Float = 2.7
+    let height: Float = 0.22
+    let arcDegrees: Float = 70.0 // 总弧长角度：左右各 35°，越大左右视差越强
+
+    let half = (arcDegrees * .pi / 180.0) / 2.0
+    let start = -half
+    let end = half
+    let step = (end - start) / Float(n - 1)
+
+    // angle=0 对应正前方（+Z）；angle<0 在左侧（x<0）；angle>0 在右侧（x>0）
+    return (0..<n).map { i in
+      let a = start + Float(i) * step
+      let x = center.x + radius * sinf(a)
+      let z = center.z + radius * cosf(a)
+      return SCNVector3(x, height, z)
     }
-    // 俯视（正上方）
-    positions.append(SCNVector3(center.x, center.y + 2.0, center.z + 0.01))
-    // 仰视（从稍远处斜下往上看，距离与环绕相近）
-    positions.append(SCNVector3(0.8, -0.6, 2.2))
-    // 远景斜侧（稍高、稍远，看整体轮廓，不放大模型）
-    positions.append(SCNVector3(center.x + r * cosf(Float.pi / 4), h + 0.4, center.z + r * sinf(Float.pi / 4)))
-    return positions
   }
 
   /// 多机位截图：用离屏 SCNRenderer 按预设机位各渲染一帧
@@ -193,13 +195,14 @@ public class GLBSceneContainerView: UIView {
     offscreenCam.camera = SCNCamera()
     offscreenCam.camera?.zNear = 0.01
     offscreenCam.camera?.zFar = 200
-    offscreenCam.camera?.fieldOfView = 48
+    // 截图视角：适当增大 FOV，让画面“更远”（物体更小）
+    offscreenCam.camera?.fieldOfView = 40
 
-    let positions = Self.multiCameraPositions()
-    let n = min(countNumber.intValue, positions.count)
+    let n = max(2, countNumber.intValue)
+    let positions = Self.multiCameraPositions(count: n)
 
     var results: [String] = []
-    for i in 0..<n {
+    for i in 0..<positions.count {
       offscreenCam.position = positions[i]
       offscreenCam.look(at: sceneCenter)
       renderer.pointOfView = offscreenCam
