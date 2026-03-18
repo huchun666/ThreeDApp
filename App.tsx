@@ -177,24 +177,24 @@ function AppContent() {
           collapsable={false}
         />
       </View>
-      <Pressable
+      {/* <Pressable
         style={[styles.btnSecondary, busy && styles.btnDisabled]}
         onPress={onCaptureMulti}
         disabled={busy}>
         <Text style={styles.btnText}>多机位截图 × 9</Text>
-      </Pressable>
+      </Pressable> */}
       <Pressable
         style={[styles.btnSecondary, busy && styles.btnDisabled]}
         onPress={onCaptureMultiInterlace}
         disabled={busy}>
         <Text style={styles.btnText}>{busy ? '处理中…' : '多机位截图 → 生成交织图'}</Text>
       </Pressable>
-      <Pressable
+      {/* <Pressable
         style={[styles.btn, busy && styles.btnDisabled]}
         onPress={onCapture}
         disabled={busy}>
         <Text style={styles.btnText}>{busy ? '截图中…' : '单机位截图'}</Text>
-      </Pressable>
+      </Pressable> */}
       {interlacedOutputPath ? (
         <>
           <Text style={styles.subtitle}>交织结果（本地缓存 PNG）</Text>
@@ -229,12 +229,12 @@ function AppContent() {
           </View>
         </>
       ) : null}
-      {uri ? (
+      {/* {uri ? (
         <>
           <Text style={styles.subtitle}>单机位预览（本机展示，未上传）</Text>
           <Image source={{ uri }} style={styles.preview} resizeMode="contain" />
         </>
-      ) : null}
+      ) : null} */}
     </ScrollView>
   );
 }
