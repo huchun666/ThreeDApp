@@ -199,17 +199,21 @@ function AppContent() {
         <>
           <Text style={styles.subtitle}>交织结果（本地缓存 PNG）</Text>
           <Text style={styles.pathText}>{interlacedOutputPath}</Text>
-          <Image
-            source={{ uri: `file://${interlacedOutputPath}` }}
-            style={styles.preview}
-            resizeMode="contain"
-          />
+          <View style={styles.previewFrame}>
+            <Image
+              source={{ uri: `file://${interlacedOutputPath}` }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          </View>
         </>
       ) : null}
       {interlacedDataUri ? (
         <>
           <Text style={styles.subtitle}>交织结果（Python 公式，base64）</Text>
-          <Image source={{ uri: interlacedDataUri }} style={styles.preview} resizeMode="contain" />
+          <View style={styles.previewFrame}>
+            <Image source={{ uri: interlacedDataUri }} style={styles.previewImage} resizeMode="contain" />
+          </View>
         </>
       ) : null}
 
@@ -219,12 +223,9 @@ function AppContent() {
           <Text style={styles.subtitle}>多机位预览（{multiUris.length} 张）</Text>
           <View style={styles.multiRow}>
             {multiUris.map((u, idx) => (
-              <Image
-                key={idx}
-                source={{ uri: u }}
-                style={styles.multiThumb}
-                resizeMode="cover"
-              />
+              <View key={idx} style={styles.multiThumbFrame}>
+                <Image source={{ uri: u }} style={styles.multiThumbImage} resizeMode="cover" />
+              </View>
             ))}
           </View>
         </>
@@ -232,7 +233,9 @@ function AppContent() {
       {/* {uri ? (
         <>
           <Text style={styles.subtitle}>单机位预览（本机展示，未上传）</Text>
-          <Image source={{ uri }} style={styles.preview} resizeMode="contain" />
+          <View style={styles.previewFrame}>
+            <Image source={{ uri }} style={styles.previewImage} resizeMode="contain" />
+          </View>
         </>
       ) : null} */}
     </ScrollView>
@@ -274,11 +277,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
   },
-  preview: {
+  previewFrame: {
     width: '100%',
-    height: 280,
+    height: 340,
     backgroundColor: '#222',
     borderRadius: 12,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    // transform: [{ scale: 1 }],
   },
   multiRow: {
     flexDirection: 'row',
@@ -286,15 +295,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginHorizontal: -4,
   },
-  multiThumb: {
-    width: 100,
-    height: 100,
+  multiThumbFrame: {
+    width: 110,
+    height: 110,
     marginHorizontal: 4,
     marginBottom: 8,
     borderRadius: 8,
     backgroundColor: '#222',
     borderWidth: 1,
     borderColor: '#555',
+    overflow: 'hidden',
+  },
+  multiThumbImage: {
+    width: '100%',
+    height: '100%',
+    // transform: [{ scale: 1 }],
   },
 });
 

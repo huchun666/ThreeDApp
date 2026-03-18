@@ -1,6 +1,11 @@
-# 3D 展示 → 多机位截图 → 生成交织图（iOS）
+# 3D 展示 → 多机位截图 → 生成交织图（iOS / Python）
 
 本文档描述当前项目里从 **SceneKit 3D 展示** 到 **多机位离屏截图**，再到 **生成交织图（Interlaced PNG）** 的完整链路、关键代码位置与常见问题排查。
+
+本项目当前支持两条“交织”路径：
+
+- **iOS 原生交织（按列交织）**：输入为本地 PNG 路径，iOS 端合成输出 PNG（离线、无需网络）。
+- **Python 公式交织（推荐用于调参数）**：输入为 base64 PNG 列表，通过本机 Node 服务转发给 Python 脚本，返回 base64 PNG（方便快速迭代公式参数）。
 
 ---
 
@@ -9,13 +14,18 @@
 1. **3D 展示（iOS 原生）**
    - RN 通过 `requireNativeComponent('GLBSceneView')` 挂载原生 `GLBSceneContainerView`（SceneKit `SCNView`）。
 2. **多机位离屏截图**
-   - RN 调用 `NativeModules.GLBSnapshot.captureMultiToFiles(tag, count)`。
-   - 原生在预设机位列表上用 `SCNRenderer` 逐帧 `snapshot`，得到 **PNG**，然后写入临时目录，返回 **本地路径数组**。
-3. **生成交织图（按列交织）**
-   - RN 调用 `generateInterlacedImage(paths)`（iOS 原生模块 `InterlaceImage`）。
-   - 原生读取每张 PNG，按 **列** 从不同输入图拷贝像素列，输出 `interlaced_*.png` 到临时目录。
-4. **预览**
-   - RN 用 `<Image source={{ uri: `file://${path}` }} />` 显示多机位缩略图与交织结果。
+   - RN 调用 `NativeModules.GLBSnapshot.captureMulti(tag, count)`（返回 base64 PNG 列表）。
+   - 原生使用 `SCNRenderer` 离屏逐帧 `snapshot`，得到 **PNG** base64（用于 RN 预览，也可直接作为 Python 交织输入）。
+ 3. **生成交织图（两条路径二选一）**
+   - **路径 A：Python 公式交织**
+     - RN `fetch(POST /interlace)` 把 base64 PNG 列表发到本机服务
+     - Node 服务写入临时目录 → 调 Python 脚本 → 读 `out.png` → 返回 base64 PNG
+   - **路径 B：iOS 原生按列交织**
+     - RN 调用 `GLBSnapshot.captureMultiToFiles(tag, count)` 获取本地 PNG 路径数组
+     - 再调用 `InterlaceImage.generateInterlacedImage(imagePaths)` 输出交织 PNG 路径
+ 4. **预览**
+   - base64 预览：`data:image/png;base64,...`
+   - 本地文件预览：`file://${path}`
 
 ---
 
@@ -31,8 +41,13 @@
   - 预览：`data:image/png;base64,...`
 
 - **多机位截图 → 生成交织图**
-  - 调用：`GLBSnapshot.captureMultiToFiles(tag, 9)` 拿到本地路径数组
-  - 再调用：`generateInterlacedImage(paths)` 生成交织图输出路径
+  - 当前 `App.tsx` 走 **Python 公式交织**：
+    - 先调用：`GLBSnapshot.captureMulti(tag, 9)` 拿到 base64 PNG 列表
+    - 再调用：`POST ${pyInterlaceBaseUrl}/interlace`，返回 `image_base64`
+    - 预览：`data:image/png;base64,${image_base64}`
+  - 如需切到 **iOS 原生交织**：
+    - 调用：`GLBSnapshot.captureMultiToFiles(tag, 9)` 拿到本地路径数组
+    - 再调用：`InterlaceImage.generateInterlacedImage(paths)` 生成交织图输出路径
 
 原生交织模块 JS 包装：`MyApp/src/native/interlaceImage.ts`
 
@@ -59,7 +74,10 @@
 
 ### 机位选择
 
-`multiCameraPositions()` 返回固定机位（目前是 9 个：水平环绕 6 + 俯视 + 仰视 + 远景斜侧）。
+本项目目前实现为 **“基于当前视角”** 的机位生成：
+
+- 用户在 `SCNView` 里用手势旋转/缩放（`allowsCameraControl = true`），`scnView.pointOfView` 会变化
+- `captureSnapshotsAround(count)` 会读取当前 `pointOfView`，在保持距离基本不变的前提下，绕世界 **Y 轴** 左右小角度取样出 `count` 个机位（局部多视角）
 
 ### 截图实现
 
@@ -70,6 +88,10 @@
 - 对每个机位调用：
   - `renderer.snapshot(atTime: 0, with: size, antialiasingMode: ...)`
   - 再 `pngData()` → base64
+
+### 截图“上下颠倒”（重要）
+
+部分设备/渲染路径下，`SCNRenderer.snapshot` 的离屏结果可能会出现 **上下翻转**。为了保证与屏幕 `scnView.snapshot()` 看到的一致，本项目在离屏截图后做了 `flipVertically` 统一翻转。
 
 ### 分辨率与清晰度（重要）
 
@@ -114,6 +136,43 @@ RN 调用入口：
 
 ---
 
+## 本机 Python 交织：Node 服务 → Python 脚本（公式模式）
+
+### 为什么要这条链路？
+
+当你需要频繁调整“公式交织”的参数（例如 `val_x / val_tan / offset`）时，走 Python 更方便：不用重新编译 iOS，直接改参数、点按钮就能看到输出。
+
+### 启动方式
+
+在项目根目录运行：
+
+- `npm run py:interlace`
+
+对应脚本：`dev_py_interlace_server.mjs`
+
+### RN 调用方式
+
+`App.tsx` 里通过：
+
+- `fetch(POST ${pyInterlaceBaseUrl}/interlace, { images: base64PngList, val_x, val_tan, offset })`
+
+注意：
+
+- **模拟器**可以访问 `http://localhost:8787`（如果你把 baseUrl 配成 localhost）
+- **真机**不能用 localhost，必须用你 Mac 的 **局域网 IP**（示例：`http://10.28.111.123:8787`）
+
+### Node 服务做了什么
+
+`dev_py_interlace_server.mjs` 的核心流程：
+
+1. 接收 `images: string[]`（每项可以是纯 base64 或 data-uri）
+2. 写入临时目录：`MyApp/_py_interlace_tmp/<ts>/in/1.png ...`
+3. `spawn` 调用：`.venv/bin/python MyApp/interleaveV2.py --input_dir ... --output out.png --mode formula --val_x ... --val_tan ... --offset ...`
+4. 读取 `out.png` → base64 返回：`{ ok: true, image_base64 }`
+5. best-effort 清理临时目录
+
+---
+
 ## 输出产物在哪里？
 
 在 iOS 上都写在系统临时目录（`NSTemporaryDirectory()`）：
@@ -154,6 +213,13 @@ RN 预览时记得加 `file://`：
 - `generateInterlacedImage` 需要传入 **真实文件路径**（可以是 `/var/.../xxx.png` 或 `file://...`）
 - 临时目录内容可能被系统清理：建议在使用链路中尽快生成交织图
 
+### 5) “真机请求 Python 服务失败 / 超时 / 404”
+
+- 确认 Mac 和 iPhone 在同一个局域网
+- `pyInterlaceBaseUrl` 必须是 Mac 的局域网 IP（不能是 localhost）
+- 确认 Node 服务正在运行：`GET /health` 返回 `{ ok: true }`
+- 如端口冲突：`PY_INTERLACE_PORT=8788 npm run py:interlace`，并同步修改 `App.tsx`
+
 ---
 
 ## 代码导航（快速索引）
@@ -163,4 +229,5 @@ RN 预览时记得加 `file://`：
 - **iOS 原生 3D + 截图**：`MyApp/ios/MyApp/GLBSceneView.swift`
 - **iOS 原生 RN Bridge（截图/写盘）**：`MyApp/ios/MyApp/GLBSnapshotModule.m`
 - **iOS 原生交织实现**：`MyApp/ios/MyApp/InterlaceImage.swift`
+- **Node → Python 交织服务**：`MyApp/dev_py_interlace_server.mjs` → `MyApp/interleaveV2.py`
 

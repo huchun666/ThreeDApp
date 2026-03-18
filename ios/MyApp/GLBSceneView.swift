@@ -299,7 +299,9 @@ public class GLBSceneContainerView: UIView {
 
     // 仅在水平面环绕，避免高低角度飘动；高度取当前相机高度
     offset = SCNVector3(offset.x, 0, offset.z)
-    let flatR = max(0.0001, Self.length(offset))
+    // 截图相机整体拉远：让模型在截图里更“小”、更不贴脸
+    let distanceScale: Float = 1.6
+    let flatR = max(0.0001, Self.length(offset)) * distanceScale
     let baseDir = Self.normalize(offset) // 从 center 指向 camera 的方向（水平）
 
     // 环绕角度范围：默认左右各 18°（总 36°），和用户当前视角保持“局部多视角”
@@ -331,14 +333,11 @@ public class GLBSceneContainerView: UIView {
       return nil
     }
     let sceneCenter = SCNVector3(0, 0, 0)
-    var size = bounds.size
-    if size.width < 1 || size.height < 1 {
-      size = CGSize(width: 800, height: 800)
-    }
-    // 用更高分辨率离屏渲染，避免交织后细节不足。
-    // `bounds.size` 是 points，这里按屏幕 scale 转为像素尺寸。
-    let scale = max(1.0, UIScreen.main.scale)
-    size = CGSize(width: size.width * scale, height: size.height * scale)
+    // 虚拟相机固定输出分辨率：1210x1920（其余区域填黑，不拉伸）
+    let targetSize = CGSize(width: 1210, height: 1920)
+    let viewSize = bounds.size.width > 1 && bounds.size.height > 1 ? bounds.size : CGSize(width: 800, height: 800)
+    let viewAspect = max(0.0001, viewSize.width / max(0.0001, viewSize.height))
+    let renderSize = Self.renderSizeFitting(aspect: viewAspect, into: targetSize)
 
     let device = scnView.device ?? MTLCreateSystemDefaultDevice()
     let renderer = SCNRenderer(device: device, options: nil)
@@ -361,13 +360,71 @@ public class GLBSceneContainerView: UIView {
       offscreenCam.position = positions[i]
       offscreenCam.look(at: sceneCenter)
       renderer.pointOfView = offscreenCam
-      let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: scnView.antialiasingMode)
+      var image = renderer.snapshot(atTime: 0, with: renderSize, antialiasingMode: scnView.antialiasingMode)
+      // 离屏 snapshot 可能上下颠倒；先统一翻转
+      image = Self.flipVertically(image)
+      // 再居中贴到固定分辨率黑底画布（不拉伸、不缩放内容）
+      image = Self.letterboxNoScale(image, canvasSize: targetSize)
       // 用 PNG 无损，避免 JPEG 压缩导致的“糊”和块状伪影
       if let data = image.pngData() {
         results.append(data.base64EncodedString())
       }
     }
     return results
+  }
+
+  private static func renderSizeFitting(aspect: CGFloat, into canvas: CGSize) -> CGSize {
+    // 输出尺寸必须 <= canvas，保持宽高比；后续再贴到 canvas（黑底）
+    let canvasAspect = canvas.width / max(0.0001, canvas.height)
+    if aspect >= canvasAspect {
+      let w = canvas.width
+      let h = floor(w / max(0.0001, aspect))
+      return CGSize(width: w, height: max(1, h))
+    } else {
+      let h = canvas.height
+      let w = floor(h * aspect)
+      return CGSize(width: max(1, w), height: h)
+    }
+  }
+
+  private static func flipVertically(_ image: UIImage) -> UIImage {
+    guard let cgImage = image.cgImage else { return image }
+    let width = cgImage.width
+    let height = cgImage.height
+
+    UIGraphicsBeginImageContextWithOptions(CGSize(width: width, height: height), true, 1.0)
+    defer { UIGraphicsEndImageContext() }
+    guard let ctx = UIGraphicsGetCurrentContext() else { return image }
+
+    ctx.setFillColor(UIColor.black.cgColor)
+    ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    ctx.translateBy(x: 0, y: CGFloat(height))
+    ctx.scaleBy(x: 1, y: -1)
+    ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+    return UIGraphicsGetImageFromCurrentImageContext() ?? image
+  }
+
+  private static func letterboxNoScale(_ image: UIImage, canvasSize: CGSize) -> UIImage {
+    guard let cgImage = image.cgImage else { return image }
+    let iw = CGFloat(cgImage.width)
+    let ih = CGFloat(cgImage.height)
+    let cw = canvasSize.width
+    let ch = canvasSize.height
+
+    UIGraphicsBeginImageContextWithOptions(canvasSize, true, 1.0)
+    defer { UIGraphicsEndImageContext() }
+    guard let ctx = UIGraphicsGetCurrentContext() else { return image }
+
+    ctx.setFillColor(UIColor.black.cgColor)
+    ctx.fill(CGRect(origin: .zero, size: canvasSize))
+
+    // 不缩放：按像素 1:1 居中绘制；若比画布大则居中裁切
+    let dx = floor((cw - iw) / 2.0)
+    let dy = floor((ch - ih) / 2.0)
+    let drawRect = CGRect(x: dx, y: dy, width: iw, height: ih)
+    UIImage(cgImage: cgImage, scale: 1.0, orientation: .up).draw(in: drawRect)
+
+    return UIGraphicsGetImageFromCurrentImageContext() ?? image
   }
 }
 
