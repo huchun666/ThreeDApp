@@ -60,8 +60,8 @@ public class GLBSceneContainerView: UIView {
   }
 
   private func loadDAE() {
-    guard let url = Bundle.main.url(forResource: "FeiLinV2", withExtension: "dae") else {
-      statusLabel.text = "未找到 FeiLinV2.dae\n请加入 Xcode Copy Bundle Resources"
+    guard let url = Bundle.main.url(forResource: "glove", withExtension: "dae") else {
+      statusLabel.text = "未找到 glove.dae\n请加入 Xcode Copy Bundle Resources"
       return
     }
     do {
@@ -73,6 +73,7 @@ public class GLBSceneContainerView: UIView {
       // 再放大一轮，让模型明显占据视图中心区域
       root.scale = SCNVector3(5, 5, 5)
 
+      applyTextureFixups(to: scene)
       applyCameraAndLights(to: scene)
       scnView.scene = scene
       statusLabel.isHidden = true
@@ -81,15 +82,110 @@ public class GLBSceneContainerView: UIView {
     }
   }
 
+  /// DAE 里可能缺少 UV 或材质未绑定；这里做一个运行时兜底：
+  /// - 给所有材质设置 glove-image.jpg 作为 diffuse
+  /// - 如果几何体没有 TEXCOORD，则用顶点坐标生成一套平面 UV
+  private func applyTextureFixups(to scene: SCNScene) {
+    let texture = UIImage(named: "glove-image.jpg")
+    scene.rootNode.enumerateChildNodes { node, _ in
+      guard let geo = node.geometry else { return }
+
+      let fixedGeo = Self.geometryByEnsuringTexcoords(geo)
+      if fixedGeo !== geo {
+        node.geometry = fixedGeo
+      }
+
+      for material in (node.geometry?.materials ?? []) {
+        if let texture {
+          material.diffuse.contents = texture
+        }
+        material.lightingModel = .physicallyBased
+        material.isDoubleSided = true
+      }
+    }
+  }
+
+  private static func geometryByEnsuringTexcoords(_ geometry: SCNGeometry) -> SCNGeometry {
+    if !geometry.sources(for: .texcoord).isEmpty {
+      return geometry
+    }
+    guard let positionSource = geometry.sources(for: .vertex).first else {
+      return geometry
+    }
+    guard let texSource = Self.makePlanarTexcoordSource(from: positionSource) else {
+      return geometry
+    }
+
+    let newSources = geometry.sources + [texSource]
+    let newGeo = SCNGeometry(sources: newSources, elements: geometry.elements)
+    newGeo.materials = geometry.materials
+    return newGeo
+  }
+
+  private static func makePlanarTexcoordSource(from positionSource: SCNGeometrySource) -> SCNGeometrySource? {
+    let count = positionSource.vectorCount
+    guard count > 0 else { return nil }
+
+    let data = positionSource.data as NSData
+    let stride = positionSource.dataStride
+    let offset = positionSource.dataOffset
+    let bytesPerComponent = positionSource.bytesPerComponent
+    let comps = positionSource.componentsPerVector
+    guard bytesPerComponent == 4, comps >= 3 else {
+      return nil
+    }
+
+    var xs = [Float](repeating: 0, count: count)
+    var zs = [Float](repeating: 0, count: count)
+    var minX = Float.greatestFiniteMagnitude
+    var maxX = -Float.greatestFiniteMagnitude
+    var minZ = Float.greatestFiniteMagnitude
+    var maxZ = -Float.greatestFiniteMagnitude
+
+    for i in 0..<count {
+      let base = offset + i * stride
+      let xPtr = data.bytes.advanced(by: base).assumingMemoryBound(to: Float.self)
+      let x = xPtr[0]
+      let z = xPtr[2]
+      xs[i] = x
+      zs[i] = z
+      minX = min(minX, x); maxX = max(maxX, x)
+      minZ = min(minZ, z); maxZ = max(maxZ, z)
+    }
+
+    let dx = max(0.00001, maxX - minX)
+    let dz = max(0.00001, maxZ - minZ)
+
+    var uv = [Float](repeating: 0, count: count * 2)
+    for i in 0..<count {
+      let u = (xs[i] - minX) / dx
+      let v = (zs[i] - minZ) / dz
+      uv[i * 2 + 0] = u
+      uv[i * 2 + 1] = v
+    }
+
+    let uvData = Data(bytes: uv, count: uv.count * MemoryLayout<Float>.size)
+    return SCNGeometrySource(
+      data: uvData,
+      semantic: .texcoord,
+      vectorCount: count,
+      usesFloatComponents: true,
+      componentsPerVector: 2,
+      bytesPerComponent: 4,
+      dataOffset: 0,
+      dataStride: 8
+    )
+  }
+
   /// 使用固定相机 + 简单灯光，保证总能看到 (0,0,0) 附近的模型
   private func applyCameraAndLights(to scene: SCNScene) {
     let camNode = SCNNode()
     camNode.camera = SCNCamera()
     camNode.camera?.zNear = 0.01
     camNode.camera?.zFar = 200
-    // 减小视角 + 再靠近，让模型在画面中更大
-    camNode.camera?.fieldOfView = 28
-    camNode.position = SCNVector3(0, 0.25, 1.2)
+    // 视角更大 + 相机更远：避免“贴脸”
+    camNode.camera?.fieldOfView = 42
+    camNode.position = SCNVector3(0, 0.35, 2.8)
     camNode.look(at: SCNVector3(0, 0, 0))
     scene.rootNode.addChildNode(camNode)
     scnView.pointOfView = camNode
@@ -145,8 +241,8 @@ public class GLBSceneContainerView: UIView {
     let n = max(2, count)
     let center = SCNVector3(0, 0, 0)
     // 视角“太近”主要由相机距离 + FOV 决定：这里先把相机整体拉远一些
-    let radius: Float = 2.7
-    let height: Float = 0.22
+    let radius: Float = 8.5
+    let height: Float = 0.34
     let arcDegrees: Float = 70.0 // 总弧长角度：左右各 35°，越大左右视差越强
 
     let half = (arcDegrees * .pi / 180.0) / 2.0
@@ -196,7 +292,7 @@ public class GLBSceneContainerView: UIView {
     offscreenCam.camera?.zNear = 0.01
     offscreenCam.camera?.zFar = 200
     // 截图视角：适当增大 FOV，让画面“更远”（物体更小）
-    offscreenCam.camera?.fieldOfView = 40
+    offscreenCam.camera?.fieldOfView = 75
 
     let n = max(2, countNumber.intValue)
     let positions = Self.multiCameraPositions(count: n)

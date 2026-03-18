@@ -8,11 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		03EBA5D25EB26E18981F2945 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		A1B2C3D4E5F60718293A4B5C /* glove-image.jpg in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C /* glove-image.jpg */; };
 		0C80B921A6F3F58F76C31292 /* libPods-MyApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-MyApp.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		F8D4C2EA1A68108700A75B06 /* FeiLinV2.dae in Resources */ = {isa = PBXBuildFile; fileRef = F8D4C2E81A68108700A75B06 /* FeiLinV2.dae */; };
+		F8D4C2EA1A68108700A75B06 /* glove.dae in Resources */ = {isa = PBXBuildFile; fileRef = F8D4C2E81A68108700A75B06 /* glove.dae */; };
 		F8D4C2E31A68108700A75B02 /* GLBSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8D4C2E21A68108700A75B02 /* GLBSceneView.swift */; };
 		F8D4C2E51A68108700A75B03 /* GLBSceneViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F8D4C2E41A68108700A75B03 /* GLBSceneViewManager.m */; };
 		F8D4C2E71A68108700A75B04 /* GLBSnapshotModule.m in Sources */ = {isa = PBXBuildFile; fileRef = F8D4C2E61A68108700A75B04 /* GLBSnapshotModule.m */; };
@@ -25,13 +26,14 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = MyApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = MyApp/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = MyApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A5B6C /* glove-image.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = "glove-image.jpg"; path = "MyApp/glove-image.jpg"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-MyApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyApp.debug.xcconfig"; path = "Target Support Files/Pods-MyApp/Pods-MyApp.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-MyApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MyApp.release.xcconfig"; path = "Target Support Files/Pods-MyApp/Pods-MyApp.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-MyApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MyApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = MyApp/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = MyApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F8D4C2E81A68108700A75B06 /* FeiLinV2.dae */ = {isa = PBXFileReference; lastKnownFileType = text.xml.dae; name = FeiLinV2.dae; path = MyApp/FeiLinV2.dae; sourceTree = "<group>"; };
+		F8D4C2E81A68108700A75B06 /* glove.dae */ = {isa = PBXFileReference; lastKnownFileType = text.xml.dae; name = glove.dae; path = MyApp/glove.dae; sourceTree = "<group>"; };
 		F8D4C2E21A68108700A75B02 /* GLBSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GLBSceneView.swift; path = MyApp/GLBSceneView.swift; sourceTree = "<group>"; };
 		F8D4C2E41A68108700A75B03 /* GLBSceneViewManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GLBSceneViewManager.m; path = MyApp/GLBSceneViewManager.m; sourceTree = "<group>"; };
 		F8D4C2E61A68108700A75B04 /* GLBSnapshotModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GLBSnapshotModule.m; path = MyApp/GLBSnapshotModule.m; sourceTree = "<group>"; };
@@ -61,7 +63,8 @@
 				F8D4C2E61A68108700A75B04 /* GLBSnapshotModule.m */,
 				F8D4C2EB1A68108700A75B0A /* InterlaceImage.swift */,
 				F8D4C2ED1A68108700A75B0B /* InterlaceImageBridge.m */,
-				F8D4C2E81A68108700A75B06 /* FeiLinV2.dae */,
+				F8D4C2E81A68108700A75B06 /* glove.dae */,
+				B1C2D3E4F5061728394A5B6C /* glove-image.jpg */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -176,7 +179,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F8D4C2EA1A68108700A75B06 /* FeiLinV2.dae in Resources */,
+				F8D4C2EA1A68108700A75B06 /* glove.dae in Resources */,
+				A1B2C3D4E5F60718293A4B5C /* glove-image.jpg in Resources */,
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				03EBA5D25EB26E18981F2945 /* PrivacyInfo.xcprivacy in Resources */,

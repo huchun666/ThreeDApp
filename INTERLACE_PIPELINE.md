@@ -44,11 +44,11 @@
 
 - `GLBSceneContainerView`
   - 内部持有 `SCNView`（屏幕展示）
-  - `loadDAE()` 加载 `FeiLinV2.dae` 并设置相机、灯光等
+  - `loadDAE()` 加载 `glove.dae` 并设置相机、灯光等
 
 ### 资源文件要求
 
-- 模型：`ios/MyApp/FeiLinV2.dae` 必须加入 Xcode **Copy Bundle Resources**
+- 模型：`ios/MyApp/glove.dae` 必须加入 Xcode **Copy Bundle Resources**
 - 若 DAE 引用贴图（例如某个 `.jpg/.png`），贴图也需要放到 `ios/MyApp/` 并加入 **Copy Bundle Resources**
 
 ---
