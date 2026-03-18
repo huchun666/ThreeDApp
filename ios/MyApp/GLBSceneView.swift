@@ -1,6 +1,7 @@
 import UIKit
 import SceneKit
 import QuartzCore
+import Metal
 import React
 
 /// SceneKit 展示 Collada DAE；离屏截图用 SCNRenderer。
@@ -138,9 +139,8 @@ public class GLBSceneContainerView: UIView {
     return snapshotOnce()
   }
 
-  /// 多机位环绕截图，固定绕 Y 轴均匀取样，返回 Base64 数组
+  /// 多机位环绕截图：用离屏 SCNRenderer 按角度各渲染一帧再截图，保证每张图不同
   @objc public func captureSnapshotsAround(_ countNumber: NSNumber) -> [String]? {
-    // 必须主线程
     if !Thread.isMainThread {
       var result: [String]?
       DispatchQueue.main.sync {
@@ -149,37 +149,44 @@ public class GLBSceneContainerView: UIView {
       return result
     }
 
-    guard let cam = cameraNode else {
+    guard let scene = scnView.scene else {
       return nil
     }
     let sceneCenter = SCNVector3(0, 0, 0)
-    let originalPos = cam.position
-
-    // 以当前相机的水平距离为半径，在水平面上绕圈
-    let dx = originalPos.x - sceneCenter.x
-    let dz = originalPos.z - sceneCenter.z
-    let radius = max(sqrt(dx * dx + dz * dz), 0.5)
-    let baseAngle = atan2f(dz, dx)
-
+    // 固定机位：较远距离 + 较大 FOV，避免模型在画面里过大
+    let orbitRadius: Float = 2.2
+    let orbitHeight: Float = 0.3
     let n = max(1, min(countNumber.intValue, 12))
-    var results: [String] = []
-
-    for i in 0..<n {
-      let t = Float(i) / Float(max(n, 1))
-      let angle = baseAngle + 2.0 * Float.pi * t
-      let x = sceneCenter.x + radius * cosf(angle)
-      let z = sceneCenter.z + radius * sinf(angle)
-      cam.position = SCNVector3(x, originalPos.y, z)
-      cam.look(at: sceneCenter)
-      if let b64 = snapshotOnce() {
-        results.append(b64)
-      }
+    var size = bounds.size
+    if size.width < 1 || size.height < 1 {
+      size = CGSize(width: 400, height: 400)
     }
 
-    // 恢复原位
-    cam.position = originalPos
-    cam.look(at: sceneCenter)
+    let device = scnView.device ?? MTLCreateSystemDefaultDevice()
+    let renderer = SCNRenderer(device: device, options: nil)
+    renderer.scene = scene
+    renderer.autoenablesDefaultLighting = true
 
+    let offscreenCam = SCNNode()
+    offscreenCam.camera = SCNCamera()
+    offscreenCam.camera?.zNear = 0.01
+    offscreenCam.camera?.zFar = 200
+    offscreenCam.camera?.fieldOfView = 48
+
+    var results: [String] = []
+    for i in 0..<n {
+      let t = Float(i) / Float(max(n, 1))
+      let angle = 2.0 * Float.pi * t
+      let x = sceneCenter.x + orbitRadius * cosf(angle)
+      let z = sceneCenter.z + orbitRadius * sinf(angle)
+      offscreenCam.position = SCNVector3(x, orbitHeight, z)
+      offscreenCam.look(at: sceneCenter)
+      renderer.pointOfView = offscreenCam
+      let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: scnView.antialiasingMode)
+      if let data = image.jpegData(compressionQuality: 0.88) {
+        results.append(data.base64EncodedString())
+      }
+    }
     return results
   }
 }
