@@ -18,7 +18,6 @@ import {
   requireNativeComponent,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { generateInterlacedImage } from './src/native/interlaceImage';
 
 const GLBSceneView =
   Platform.OS === 'ios'
@@ -32,6 +31,13 @@ const { GLBSnapshot } = NativeModules as {
     captureMultiToFiles?: (tag: number, count: number) => Promise<string[]>;
   };
 };
+
+function getMetroHost(): string | null {
+  const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL as string | undefined;
+  if (!scriptURL) return null;
+  const m = scriptURL.match(/^https?:\/\/([^/:]+)(?::\d+)?\//);
+  return m?.[1] ?? null;
+}
 
 function App() {
   const isDark = useColorScheme() === 'dark';
@@ -50,8 +56,13 @@ function AppContent() {
   const [uri, setUri] = useState<string | null>(null);
   const [multiUris, setMultiUris] = useState<string[]>([]);
   const [interlacedOutputPath, setInterlacedOutputPath] = useState<string | null>(null);
+  const [interlacedDataUri, setInterlacedDataUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // 你的 Mac 局域网 IP（来自 ifconfig 的 en0: inet 10.28.111.123）
+  // 真机上必须用这个 IP（不能用 localhost）
+  const pyInterlaceBaseUrl = 'http://10.28.111.123:8787';
 
   const onCapture = async () => {
     if (Platform.OS !== 'ios' || !GLBSnapshot?.capture) {
@@ -102,8 +113,8 @@ function AppContent() {
   };
 
   const onCaptureMultiInterlace = async () => {
-    if (Platform.OS !== 'ios' || !GLBSnapshot?.captureMultiToFiles) {
-      setErr('当前构建未开启多机位落盘接口');
+    if (Platform.OS !== 'ios' || !GLBSnapshot?.captureMulti) {
+      setErr('当前构建未开启多机位接口');
       return;
     }
     const tag = findNodeHandle(glbRef.current);
@@ -114,16 +125,30 @@ function AppContent() {
     setBusy(true);
     setErr(null);
     try {
-      // 1) 多机位截图 -> 写入临时目录（返回本地路径）
-      const paths = await GLBSnapshot.captureMultiToFiles(tag, 9);
+      // 1) 多机位截图（base64 PNG）
+      const list = await GLBSnapshot.captureMulti(tag, 9);
+      setMultiUris(list.map(b64 => `data:image/png;base64,${b64}`));
+      setUri(list.length > 0 ? `data:image/png;base64,${list[0]}` : null);
 
-      // 2) 生成交织图（按列）
-      const outputPath = await generateInterlacedImage(paths);
-      setInterlacedOutputPath(outputPath);
-
-      // 3) 预览：也把多机位缩略图展示出来（便于确认输入）
-      setMultiUris(paths.map(p => `file://${p}`));
-      setUri(paths.length > 0 ? `file://${paths[0]}` : null);
+      // 2) 通过本机 Python 服务生成“公式交织图”
+      // 先启动：`npm run py:interlace`（在项目根目录）
+      const resp = await fetch(`${pyInterlaceBaseUrl}/interlace`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          images: list,
+          // 这里是你 Python 脚本的公式参数，可按需要调整
+          val_x: 10,
+          val_tan: 0.277777,
+          offset: 5,
+        }),
+      });
+      const json = (await resp.json()) as { ok: boolean; image_base64?: string; error?: string };
+      if (!json.ok || !json.image_base64) {
+        throw new Error(json.error || 'Python 交织服务返回失败');
+      }
+      setInterlacedDataUri(`data:image/png;base64,${json.image_base64}`);
+      setInterlacedOutputPath(null);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -179,6 +204,12 @@ function AppContent() {
             style={styles.preview}
             resizeMode="contain"
           />
+        </>
+      ) : null}
+      {interlacedDataUri ? (
+        <>
+          <Text style={styles.subtitle}>交织结果（Python 公式，base64）</Text>
+          <Image source={{ uri: interlacedDataUri }} style={styles.preview} resizeMode="contain" />
         </>
       ) : null}
 

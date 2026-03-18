@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
+    "py:interlace": "node dev_py_interlace_server.mjs",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
