@@ -139,7 +139,29 @@ public class GLBSceneContainerView: UIView {
     return snapshotOnce()
   }
 
-  /// 多机位环绕截图：用离屏 SCNRenderer 按角度各渲染一帧再截图，保证每张图不同
+  /// 多机位截图：9 张 = 水平环绕 6 张 + 俯视 / 仰视 / 远景斜侧 各 1 张
+  private static func multiCameraPositions() -> [SCNVector3] {
+    let center = SCNVector3(0, 0, 0)
+    let r: Float = 2.2
+    let h: Float = 0.3
+    var positions: [SCNVector3] = []
+    // 水平环绕 6 张（0°, 60°, 120°, 180°, 240°, 300°）
+    for i in 0..<6 {
+      let angle = Float(i) * (2.0 * Float.pi / 6.0)
+      let x = center.x + r * cosf(angle)
+      let z = center.z + r * sinf(angle)
+      positions.append(SCNVector3(x, h, z))
+    }
+    // 俯视（正上方）
+    positions.append(SCNVector3(center.x, center.y + 2.0, center.z + 0.01))
+    // 仰视（从稍远处斜下往上看，距离与环绕相近）
+    positions.append(SCNVector3(0.8, -0.6, 2.2))
+    // 远景斜侧（稍高、稍远，看整体轮廓，不放大模型）
+    positions.append(SCNVector3(center.x + r * cosf(Float.pi / 4), h + 0.4, center.z + r * sinf(Float.pi / 4)))
+    return positions
+  }
+
+  /// 多机位截图：用离屏 SCNRenderer 按预设机位各渲染一帧
   @objc public func captureSnapshotsAround(_ countNumber: NSNumber) -> [String]? {
     if !Thread.isMainThread {
       var result: [String]?
@@ -153,10 +175,6 @@ public class GLBSceneContainerView: UIView {
       return nil
     }
     let sceneCenter = SCNVector3(0, 0, 0)
-    // 固定机位：较远距离 + 较大 FOV，避免模型在画面里过大
-    let orbitRadius: Float = 2.2
-    let orbitHeight: Float = 0.3
-    let n = max(1, min(countNumber.intValue, 12))
     var size = bounds.size
     if size.width < 1 || size.height < 1 {
       size = CGSize(width: 400, height: 400)
@@ -173,13 +191,12 @@ public class GLBSceneContainerView: UIView {
     offscreenCam.camera?.zFar = 200
     offscreenCam.camera?.fieldOfView = 48
 
+    let positions = Self.multiCameraPositions()
+    let n = min(countNumber.intValue, positions.count)
+
     var results: [String] = []
     for i in 0..<n {
-      let t = Float(i) / Float(max(n, 1))
-      let angle = 2.0 * Float.pi * t
-      let x = sceneCenter.x + orbitRadius * cosf(angle)
-      let z = sceneCenter.z + orbitRadius * sinf(angle)
-      offscreenCam.position = SCNVector3(x, orbitHeight, z)
+      offscreenCam.position = positions[i]
       offscreenCam.look(at: sceneCenter)
       renderer.pointOfView = offscreenCam
       let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: scnView.antialiasingMode)

@@ -86,7 +86,7 @@ function AppContent() {
     setBusy(true);
     setErr(null);
     try {
-      const list = await GLBSnapshot.captureMulti(tag, 6);
+      const list = await GLBSnapshot.captureMulti(tag, 9);
       setMultiUris(list.map(b64 => `data:image/jpeg;base64,${b64}`));
       if (list.length > 0) {
         setUri(`data:image/jpeg;base64,${list[0]}`);
@@ -123,7 +123,7 @@ function AppContent() {
         style={[styles.btnSecondary, busy && styles.btnDisabled]}
         onPress={onCaptureMulti}
         disabled={busy}>
-        <Text style={styles.btnText}>多机位截图 × 6</Text>
+        <Text style={styles.btnText}>多机位截图 × 9</Text>
       </Pressable>
       <Pressable
         style={[styles.btn, busy && styles.btnDisabled]}
