@@ -259,6 +259,64 @@ public class GLBSceneContainerView: UIView {
     }
   }
 
+  private static func add(_ a: SCNVector3, _ b: SCNVector3) -> SCNVector3 {
+    SCNVector3(a.x + b.x, a.y + b.y, a.z + b.z)
+  }
+
+  private static func sub(_ a: SCNVector3, _ b: SCNVector3) -> SCNVector3 {
+    SCNVector3(a.x - b.x, a.y - b.y, a.z - b.z)
+  }
+
+  private static func length(_ v: SCNVector3) -> Float {
+    sqrtf(v.x * v.x + v.y * v.y + v.z * v.z)
+  }
+
+  private static func normalize(_ v: SCNVector3) -> SCNVector3 {
+    let len = max(0.00001, Self.length(v))
+    return SCNVector3(v.x / len, v.y / len, v.z / len)
+  }
+
+  private static func rotateAroundY(_ v: SCNVector3, radians: Float) -> SCNVector3 {
+    let c = cosf(radians)
+    let s = sinf(radians)
+    // 绕世界 Y 轴旋转
+    return SCNVector3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c)
+  }
+
+  /// 基于当前视角生成多机位：以当前相机“到中心点的向量”为半径，左右小角度环绕。
+  private static func multiCameraPositions(basedOn currentCamera: SCNNode?, count: Int, center: SCNVector3) -> [SCNVector3] {
+    let n = max(2, count)
+    guard let cam = currentCamera else {
+      return Self.multiCameraPositions(count: n)
+    }
+
+    let camPos = cam.presentation.worldPosition
+    var offset = Self.sub(camPos, center)
+    let r = Self.length(offset)
+    if r < 0.0001 {
+      return Self.multiCameraPositions(count: n)
+    }
+
+    // 仅在水平面环绕，避免高低角度飘动；高度取当前相机高度
+    offset = SCNVector3(offset.x, 0, offset.z)
+    let flatR = max(0.0001, Self.length(offset))
+    let baseDir = Self.normalize(offset) // 从 center 指向 camera 的方向（水平）
+
+    // 环绕角度范围：默认左右各 18°（总 36°），和用户当前视角保持“局部多视角”
+    let arcDegrees: Float = 36.0
+    let half = (arcDegrees * .pi / 180.0) / 2.0
+    let start = -half
+    let end = half
+    let step = (end - start) / Float(n - 1)
+
+    return (0..<n).map { i in
+      let a = start + Float(i) * step
+      let dir = Self.rotateAroundY(baseDir, radians: a)
+      let pos = Self.add(center, SCNVector3(dir.x * flatR, camPos.y - center.y, dir.z * flatR))
+      return pos
+    }
+  }
+
   /// 多机位截图：用离屏 SCNRenderer 按预设机位各渲染一帧
   @objc public func captureSnapshotsAround(_ countNumber: NSNumber) -> [String]? {
     if !Thread.isMainThread {
@@ -289,13 +347,14 @@ public class GLBSceneContainerView: UIView {
 
     let offscreenCam = SCNNode()
     offscreenCam.camera = SCNCamera()
-    offscreenCam.camera?.zNear = 0.01
-    offscreenCam.camera?.zFar = 200
-    // 截图视角：适当增大 FOV，让画面“更远”（物体更小）
-    offscreenCam.camera?.fieldOfView = 75
+    // 截图相机参数：尽量跟随当前交互相机，保证“所见即所得”
+    let currentCam = scnView.pointOfView?.presentation.camera ?? cameraNode?.camera
+    offscreenCam.camera?.zNear = currentCam?.zNear ?? 0.01
+    offscreenCam.camera?.zFar = currentCam?.zFar ?? 200
+    offscreenCam.camera?.fieldOfView = currentCam?.fieldOfView ?? 60
 
     let n = max(2, countNumber.intValue)
-    let positions = Self.multiCameraPositions(count: n)
+    let positions = Self.multiCameraPositions(basedOn: scnView.pointOfView, count: n, center: sceneCenter)
 
     var results: [String] = []
     for i in 0..<positions.count {
