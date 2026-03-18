@@ -177,8 +177,12 @@ public class GLBSceneContainerView: UIView {
     let sceneCenter = SCNVector3(0, 0, 0)
     var size = bounds.size
     if size.width < 1 || size.height < 1 {
-      size = CGSize(width: 400, height: 400)
+      size = CGSize(width: 800, height: 800)
     }
+    // 用更高分辨率离屏渲染，避免交织后细节不足。
+    // `bounds.size` 是 points，这里按屏幕 scale 转为像素尺寸。
+    let scale = max(1.0, UIScreen.main.scale)
+    size = CGSize(width: size.width * scale, height: size.height * scale)
 
     let device = scnView.device ?? MTLCreateSystemDefaultDevice()
     let renderer = SCNRenderer(device: device, options: nil)
@@ -200,7 +204,8 @@ public class GLBSceneContainerView: UIView {
       offscreenCam.look(at: sceneCenter)
       renderer.pointOfView = offscreenCam
       let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: scnView.antialiasingMode)
-      if let data = image.jpegData(compressionQuality: 0.88) {
+      // 用 PNG 无损，避免 JPEG 压缩导致的“糊”和块状伪影
+      if let data = image.pngData() {
         results.append(data.base64EncodedString())
       }
     }

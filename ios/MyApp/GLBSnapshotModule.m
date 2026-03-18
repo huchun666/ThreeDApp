@@ -94,7 +94,8 @@ RCT_EXPORT_METHOD(captureMultiToFiles:(nonnull NSNumber *)reactTag
               continue;
             }
 
-            NSString *filename = [NSString stringWithFormat:@"glb_snap_%lld_%lu.jpg", ts, (unsigned long)i];
+            // 多机位截图已改为 PNG(base64)，这里也用 .png 落盘，避免 JPEG 有损压缩带来模糊
+            NSString *filename = [NSString stringWithFormat:@"glb_snap_%lld_%lu.png", ts, (unsigned long)i];
             NSString *fullPath = [tmpDir stringByAppendingPathComponent:filename];
             NSError *err = nil;
             BOOL ok = [data writeToFile:fullPath options:NSDataWritingAtomic error:&err];

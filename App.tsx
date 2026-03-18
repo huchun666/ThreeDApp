@@ -90,9 +90,9 @@ function AppContent() {
     setErr(null);
     try {
       const list = await GLBSnapshot.captureMulti(tag, 9);
-      setMultiUris(list.map(b64 => `data:image/jpeg;base64,${b64}`));
+      setMultiUris(list.map(b64 => `data:image/png;base64,${b64}`));
       if (list.length > 0) {
-        setUri(`data:image/jpeg;base64,${list[0]}`);
+        setUri(`data:image/png;base64,${list[0]}`);
       }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));

@@ -2,9 +2,10 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 
 # iOS：原生 DAE + 离屏截图
 
+- 3D 展示 / 多机位截图 / 交织图流程文档：见 `INTERLACE_PIPELINE.md`
 - **GLBSceneView**：SceneKit 加载 **`ios/MyApp/FeiLinV2.dae`**（Collada）。源文件可放在 `src/assets/FeiLinV2.dae`，同步到 `ios/MyApp/` 后加入 **Copy Bundle Resources**。
 - DAE 里若引用贴图（如 `20250811-103842.jpg`），需把 **同名图片** 放到 `ios/MyApp/` 并一并加入 **Copy Bundle Resources**，否则可能无贴图或灰模。
-- **离屏截图**：`SCNRenderer` 512×512 JPEG → Base64 → RN `Image`。
+- **离屏截图**：`SCNRenderer` 离屏渲染（按视图尺寸 * 屏幕 scale 提升像素）→ PNG（Base64 / 写盘）→ RN `Image` / 交织图。
 - 运行：`yarn ios`，点「离屏截图」。
 
 ---
