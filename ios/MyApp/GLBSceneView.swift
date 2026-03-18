@@ -300,7 +300,7 @@ public class GLBSceneContainerView: UIView {
     // 仅在水平面环绕，避免高低角度飘动；高度取当前相机高度
     offset = SCNVector3(offset.x, 0, offset.z)
     // 截图相机整体拉远：让模型在截图里更“小”、更不贴脸
-    let distanceScale: Float = 1.6
+    let distanceScale: Float = 1.35
     let flatR = max(0.0001, Self.length(offset)) * distanceScale
     let baseDir = Self.normalize(offset) // 从 center 指向 camera 的方向（水平）
 
@@ -332,7 +332,9 @@ public class GLBSceneContainerView: UIView {
     guard let scene = scnView.scene else {
       return nil
     }
-    let sceneCenter = SCNVector3(0, 0, 0)
+    // 构图中心点：稍微上移，让主体更落在“安全框/活动框”的中心区域（四周更留白）
+    // 如需更靠上/靠下，可微调这个 Y 值（单位：SceneKit 世界坐标）
+    let sceneCenter = SCNVector3(0, 0.12, 0)
     // 虚拟相机固定输出分辨率：1210x1920（其余区域填黑，不拉伸）
     let targetSize = CGSize(width: 1210, height: 1920)
     let viewSize = bounds.size.width > 1 && bounds.size.height > 1 ? bounds.size : CGSize(width: 800, height: 800)

@@ -4,6 +4,7 @@ import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 import React
+import Photos
 
 @objc(InterlaceImage)
 final class InterlaceImage: NSObject {
@@ -41,6 +42,73 @@ final class InterlaceImage: NSObject {
             reject("E_INTERLACE_IMAGE", nsError.localizedDescription, nsError)
           }
         }
+      }
+    }
+  }
+
+  @objc(saveImageToPhotos:resolver:rejecter:)
+  func saveImageToPhotos(
+    _ options: NSDictionary,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let filePath = options["filePath"] as? String
+    let base64 = options["base64"] as? String
+
+    func fail(_ message: String) {
+      reject("E_SAVE_PHOTOS", message, nil)
+    }
+
+    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+      guard status == .authorized || status == .limited else {
+        DispatchQueue.main.async {
+          fail("未获得保存到相册权限（Photos Add Only）")
+        }
+        return
+      }
+
+      if let filePath, !filePath.isEmpty {
+        let resolved = filePath.hasPrefix("file://") ? (URL(string: filePath)?.path ?? filePath) : filePath
+        let url = URL(fileURLWithPath: resolved)
+        PHPhotoLibrary.shared().performChanges({
+          _ = PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: url)
+        }, completionHandler: { ok, err in
+          DispatchQueue.main.async {
+            if ok {
+              resolve(true)
+            } else {
+              fail(err?.localizedDescription ?? "保存失败（filePath）")
+            }
+          }
+        })
+        return
+      }
+
+      if let base64, !base64.isEmpty {
+        let s = base64
+        let idx = s.range(of: "base64,")?.upperBound
+        let b64 = idx != nil ? String(s[idx!...]) : s
+        guard let data = Data(base64Encoded: b64), let image = UIImage(data: data) else {
+          DispatchQueue.main.async { fail("base64 图片解码失败") }
+          return
+        }
+
+        PHPhotoLibrary.shared().performChanges({
+          PHAssetChangeRequest.creationRequestForAsset(from: image)
+        }, completionHandler: { ok, err in
+          DispatchQueue.main.async {
+            if ok {
+              resolve(true)
+            } else {
+              fail(err?.localizedDescription ?? "保存失败（base64）")
+            }
+          }
+        })
+        return
+      }
+
+      DispatchQueue.main.async {
+        fail("请传入 filePath 或 base64")
       }
     }
   }

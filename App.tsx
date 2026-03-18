@@ -31,6 +31,11 @@ const { GLBSnapshot } = NativeModules as {
     captureMultiToFiles?: (tag: number, count: number) => Promise<string[]>;
   };
 };
+const { InterlaceImage } = NativeModules as {
+  InterlaceImage?: {
+    saveImageToPhotos: (options: { filePath?: string; base64?: string }) => Promise<boolean>;
+  };
+};
 
 function getMetroHost(): string | null {
   const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL as string | undefined;
@@ -59,6 +64,7 @@ function AppContent() {
   const [interlacedDataUri, setInterlacedDataUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
 
   // 你的 Mac 局域网 IP（来自 ifconfig 的 en0: inet 10.28.111.123）
   // 真机上必须用这个 IP（不能用 localhost）
@@ -156,6 +162,30 @@ function AppContent() {
     }
   };
 
+  const onSaveInterlaced = async () => {
+    if (Platform.OS !== 'ios' || !InterlaceImage?.saveImageToPhotos) {
+      setErr('当前构建未开启保存到相册能力');
+      return;
+    }
+    if (!interlacedOutputPath && !interlacedDataUri) {
+      setErr('暂无可保存的交织图');
+      return;
+    }
+    setSaveBusy(true);
+    setErr(null);
+    try {
+      if (interlacedOutputPath) {
+        await InterlaceImage.saveImageToPhotos({ filePath: interlacedOutputPath });
+      } else if (interlacedDataUri) {
+        await InterlaceImage.saveImageToPhotos({ base64: interlacedDataUri });
+      }
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
   if (Platform.OS !== 'ios') {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
@@ -188,6 +218,15 @@ function AppContent() {
         onPress={onCaptureMultiInterlace}
         disabled={busy}>
         <Text style={styles.btnText}>{busy ? '处理中…' : '多机位截图 → 生成交织图'}</Text>
+      </Pressable>
+      <Pressable
+        style={[
+          styles.btnSecondary,
+          (saveBusy || (!interlacedOutputPath && !interlacedDataUri)) && styles.btnDisabled,
+        ]}
+        onPress={onSaveInterlaced}
+        disabled={saveBusy || (!interlacedOutputPath && !interlacedDataUri)}>
+        <Text style={styles.btnText}>{saveBusy ? '保存中…' : '保存交织图到相册'}</Text>
       </Pressable>
       {/* <Pressable
         style={[styles.btn, busy && styles.btnDisabled]}
