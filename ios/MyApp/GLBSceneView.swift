@@ -9,6 +9,7 @@ public class GLBSceneContainerView: UIView {
   private let scnView = SCNView()
   private let statusLabel = UILabel()
   private var didLoadModel = false
+  private var cameraNode: SCNNode?
 
   @objc public override init(frame: CGRect) {
     super.init(frame: frame)
@@ -91,6 +92,7 @@ public class GLBSceneContainerView: UIView {
     camNode.look(at: SCNVector3(0, 0, 0))
     scene.rootNode.addChildNode(camNode)
     scnView.pointOfView = camNode
+    cameraNode = camNode
 
     // 方向光
     let dirLightNode = SCNNode()
@@ -113,7 +115,7 @@ public class GLBSceneContainerView: UIView {
     scene.rootNode.addChildNode(ambientNode)
   }
 
-  @objc public func captureSnapshotToBase64() -> String? {
+  private func snapshotOnce() -> String? {
     // 必须在主线程执行，否则 SceneKit / UIKit 可能崩溃
     if !Thread.isMainThread {
       var result: String?
@@ -130,6 +132,55 @@ public class GLBSceneContainerView: UIView {
     let image = scnView.snapshot()
     guard let data = image.jpegData(compressionQuality: 0.88) else { return nil }
     return data.base64EncodedString()
+  }
+
+  @objc public func captureSnapshotToBase64() -> String? {
+    return snapshotOnce()
+  }
+
+  /// 多机位环绕截图，固定绕 Y 轴均匀取样，返回 Base64 数组
+  @objc public func captureSnapshotsAround(_ countNumber: NSNumber) -> [String]? {
+    // 必须主线程
+    if !Thread.isMainThread {
+      var result: [String]?
+      DispatchQueue.main.sync {
+        result = self.captureSnapshotsAround(countNumber)
+      }
+      return result
+    }
+
+    guard let cam = cameraNode else {
+      return nil
+    }
+    let sceneCenter = SCNVector3(0, 0, 0)
+    let originalPos = cam.position
+
+    // 以当前相机的水平距离为半径，在水平面上绕圈
+    let dx = originalPos.x - sceneCenter.x
+    let dz = originalPos.z - sceneCenter.z
+    let radius = max(sqrt(dx * dx + dz * dz), 0.5)
+    let baseAngle = atan2f(dz, dx)
+
+    let n = max(1, min(countNumber.intValue, 12))
+    var results: [String] = []
+
+    for i in 0..<n {
+      let t = Float(i) / Float(max(n, 1))
+      let angle = baseAngle + 2.0 * Float.pi * t
+      let x = sceneCenter.x + radius * cosf(angle)
+      let z = sceneCenter.z + radius * sinf(angle)
+      cam.position = SCNVector3(x, originalPos.y, z)
+      cam.look(at: sceneCenter)
+      if let b64 = snapshotOnce() {
+        results.append(b64)
+      }
+    }
+
+    // 恢复原位
+    cam.position = originalPos
+    cam.look(at: sceneCenter)
+
+    return results
   }
 }
 

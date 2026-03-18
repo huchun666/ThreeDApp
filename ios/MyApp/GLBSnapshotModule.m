@@ -34,6 +34,29 @@ RCT_EXPORT_METHOD(capture:(nonnull NSNumber *)reactTag
       }];
 }
 
+RCT_EXPORT_METHOD(captureMulti:(nonnull NSNumber *)reactTag
+                  count:(nonnull NSNumber *)count
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  [self.bridge.uiManager
+      addUIBlock:^(__unused RCTUIManager *uiManager,
+                   NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+        UIView *v = viewRegistry[reactTag];
+        if (![v isKindOfClass:[GLBSceneContainerView class]]) {
+          reject(@"E_VIEW", @"GLB 原生视图未找到（请确认 ref 指向 GLBSceneView）", nil);
+          return;
+        }
+        GLBSceneContainerView *glb = (GLBSceneContainerView *)v;
+        NSArray<NSString *> *list = [glb captureSnapshotsAround:count];
+        if (list != nil && list.count > 0) {
+          resolve(list);
+        } else {
+          reject(@"E_SNAP_MULTI", @"多机位离屏截图失败（场景或相机未就绪）", nil);
+        }
+      }];
+}
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;
