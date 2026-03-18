@@ -18,6 +18,7 @@ import {
   requireNativeComponent,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { generateInterlacedImage } from './src/native/interlaceImage';
 
 const GLBSceneView =
   Platform.OS === 'ios'
@@ -28,6 +29,7 @@ const { GLBSnapshot } = NativeModules as {
   GLBSnapshot?: {
     capture: (tag: number) => Promise<string>;
     captureMulti?: (tag: number, count: number) => Promise<string[]>;
+    captureMultiToFiles?: (tag: number, count: number) => Promise<string[]>;
   };
 };
 
@@ -47,6 +49,7 @@ function AppContent() {
   const glbRef = useRef<React.ComponentRef<typeof GLBSceneView>>(null);
   const [uri, setUri] = useState<string | null>(null);
   const [multiUris, setMultiUris] = useState<string[]>([]);
+  const [interlacedOutputPath, setInterlacedOutputPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -98,6 +101,36 @@ function AppContent() {
     }
   };
 
+  const onCaptureMultiInterlace = async () => {
+    if (Platform.OS !== 'ios' || !GLBSnapshot?.captureMultiToFiles) {
+      setErr('当前构建未开启多机位落盘接口');
+      return;
+    }
+    const tag = findNodeHandle(glbRef.current);
+    if (tag == null) {
+      setErr('无法获取原生节点，请稍后重试');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      // 1) 多机位截图 -> 写入临时目录（返回本地路径）
+      const paths = await GLBSnapshot.captureMultiToFiles(tag, 9);
+
+      // 2) 生成交织图（按列）
+      const outputPath = await generateInterlacedImage(paths);
+      setInterlacedOutputPath(outputPath);
+
+      // 3) 预览：也把多机位缩略图展示出来（便于确认输入）
+      setMultiUris(paths.map(p => `file://${p}`));
+      setUri(paths.length > 0 ? `file://${paths[0]}` : null);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (Platform.OS !== 'ios') {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
@@ -126,11 +159,29 @@ function AppContent() {
         <Text style={styles.btnText}>多机位截图 × 9</Text>
       </Pressable>
       <Pressable
+        style={[styles.btnSecondary, busy && styles.btnDisabled]}
+        onPress={onCaptureMultiInterlace}
+        disabled={busy}>
+        <Text style={styles.btnText}>{busy ? '处理中…' : '多机位截图 → 生成交织图'}</Text>
+      </Pressable>
+      <Pressable
         style={[styles.btn, busy && styles.btnDisabled]}
         onPress={onCapture}
         disabled={busy}>
         <Text style={styles.btnText}>{busy ? '截图中…' : '单机位截图'}</Text>
       </Pressable>
+      {interlacedOutputPath ? (
+        <>
+          <Text style={styles.subtitle}>交织结果（本地缓存 PNG）</Text>
+          <Text style={styles.pathText}>{interlacedOutputPath}</Text>
+          <Image
+            source={{ uri: `file://${interlacedOutputPath}` }}
+            style={styles.preview}
+            resizeMode="contain"
+          />
+        </>
+      ) : null}
+
       {err ? <Text style={styles.error}>{err}</Text> : null}
       {multiUris.length > 0 ? (
         <>
@@ -186,6 +237,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+  },
+  pathText: {
+    color: '#8ab4ff',
+    fontSize: 12,
+    marginBottom: 8,
   },
   preview: {
     width: '100%',
