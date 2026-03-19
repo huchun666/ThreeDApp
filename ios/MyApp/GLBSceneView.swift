@@ -181,11 +181,12 @@ public class GLBSceneContainerView: UIView {
   private func applyCameraAndLights(to scene: SCNScene) {
     let camNode = SCNNode()
     camNode.camera = SCNCamera()
-    camNode.camera?.zNear = 0.0
-    camNode.camera?.zFar = 22.24
+    // camNode.camera?.zNear = 0.0
+    // camNode.camera?.zFar = 22.24
     // 视角更大 + 相机更远：避免“贴脸”
     camNode.camera?.fieldOfView = 57
-    camNode.position = SCNVector3(0, 0, 2)
+    // 相机到 z=0 平面的距离（沿 +Z）
+    camNode.position = SCNVector3(0, 0, 1.9)
     camNode.look(at: SCNVector3(0, 0, 0))
     scene.rootNode.addChildNode(camNode)
     scnView.pointOfView = camNode
@@ -305,7 +306,7 @@ public class GLBSceneContainerView: UIView {
     let baseDir = Self.normalize(offset) // 从 center 指向 camera 的方向（水平）
 
     // 环绕角度范围：默认左右各 18°（总 36°），和用户当前视角保持“局部多视角”
-    let arcDegrees: Float = 36.0
+    let arcDegrees: Float = 9.0
     let half = (arcDegrees * .pi / 180.0) / 2.0
     let start = -half
     let end = half
@@ -350,8 +351,8 @@ public class GLBSceneContainerView: UIView {
     offscreenCam.camera = SCNCamera()
     // 截图相机参数：尽量跟随当前交互相机，保证“所见即所得”
     let currentCam = scnView.pointOfView?.presentation.camera ?? cameraNode?.camera
-    offscreenCam.camera?.zNear = currentCam?.zNear ?? 0.0
-    offscreenCam.camera?.zFar = currentCam?.zFar ?? 22.24
+    // offscreenCam.camera?.zNear = currentCam?.zNear ?? 0.0
+    // offscreenCam.camera?.zFar = currentCam?.zFar ?? 22.24
     offscreenCam.camera?.fieldOfView = currentCam?.fieldOfView ?? 57
 
     let n = max(2, countNumber.intValue)
