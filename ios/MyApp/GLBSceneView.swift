@@ -71,7 +71,7 @@ public class GLBSceneContainerView: UIView {
       let root = scene.rootNode
       root.eulerAngles.x = -.pi / 2
       // 再放大一轮，让模型明显占据视图中心区域
-      root.scale = SCNVector3(5, 5, 5)
+      // root.scale = SCNVector3(5, 5, 5)
 
       applyTextureFixups(to: scene)
       applyCameraAndLights(to: scene)
@@ -181,11 +181,11 @@ public class GLBSceneContainerView: UIView {
   private func applyCameraAndLights(to scene: SCNScene) {
     let camNode = SCNNode()
     camNode.camera = SCNCamera()
-    camNode.camera?.zNear = 0.01
-    camNode.camera?.zFar = 200
+    camNode.camera?.zNear = 0.0
+    camNode.camera?.zFar = 22.24
     // 视角更大 + 相机更远：避免“贴脸”
-    camNode.camera?.fieldOfView = 42
-    camNode.position = SCNVector3(0, 0.35, 2.8)
+    camNode.camera?.fieldOfView = 57
+    camNode.position = SCNVector3(0, 0, 2)
     camNode.look(at: SCNVector3(0, 0, 0))
     scene.rootNode.addChildNode(camNode)
     scnView.pointOfView = camNode
@@ -242,7 +242,7 @@ public class GLBSceneContainerView: UIView {
     let center = SCNVector3(0, 0, 0)
     // 视角“太近”主要由相机距离 + FOV 决定：这里先把相机整体拉远一些
     let radius: Float = 8.5
-    let height: Float = 0.34
+    let height: Float = 0.2
     let arcDegrees: Float = 70.0 // 总弧长角度：左右各 35°，越大左右视差越强
 
     let half = (arcDegrees * .pi / 180.0) / 2.0
@@ -350,9 +350,9 @@ public class GLBSceneContainerView: UIView {
     offscreenCam.camera = SCNCamera()
     // 截图相机参数：尽量跟随当前交互相机，保证“所见即所得”
     let currentCam = scnView.pointOfView?.presentation.camera ?? cameraNode?.camera
-    offscreenCam.camera?.zNear = currentCam?.zNear ?? 0.01
-    offscreenCam.camera?.zFar = currentCam?.zFar ?? 200
-    offscreenCam.camera?.fieldOfView = currentCam?.fieldOfView ?? 60
+    offscreenCam.camera?.zNear = currentCam?.zNear ?? 0.0
+    offscreenCam.camera?.zFar = currentCam?.zFar ?? 22.24
+    offscreenCam.camera?.fieldOfView = currentCam?.fieldOfView ?? 57
 
     let n = max(2, countNumber.intValue)
     let positions = Self.multiCameraPositions(basedOn: scnView.pointOfView, count: n, center: sceneCenter)
